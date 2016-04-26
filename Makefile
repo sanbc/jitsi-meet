@@ -9,13 +9,13 @@ BROWSERIFY_FLAGS = -d
 OUTPUT_DIR = .
 LIBJITSIMEET_DIR = node_modules/lib-jitsi-meet/
 
-all: update-deps compile uglify deploy clean
+all: update-deps compile deploy clean
 
 update-deps:
 	$(NPM) update
 
 compile:
-	$(BROWSERIFY) $(BROWSERIFY_FLAGS) -e app.js -s APP | $(EXORCIST) $(OUTPUT_DIR)/app.bundle.js.map > $(OUTPUT_DIR)/app.bundle.js
+	$(BROWSERIFY) $(BROWSERIFY_FLAGS) -e app.js -s APP -o $(OUTPUT_DIR)/app.bundle.js
 
 clean:
 	rm -f $(OUTPUT_DIR)/app.bundle.*
@@ -26,12 +26,11 @@ deploy-init:
 	mkdir -p $(DEPLOY_DIR)
 
 deploy-appbundle:
-	cp $(OUTPUT_DIR)/app.bundle.min.js $(OUTPUT_DIR)/app.bundle.min.map \
+	cp $(OUTPUT_DIR)/app.bundle.js \
 	$(DEPLOY_DIR)
 
 deploy-lib-jitsi-meet:
-	cp $(LIBJITSIMEET_DIR)/lib-jitsi-meet.min.js \
-	$(LIBJITSIMEET_DIR)/lib-jitsi-meet.min.map \
+	cp $(LIBJITSIMEET_DIR)/lib-jitsi-meet.js \
 	$(LIBJITSIMEET_DIR)/connection_optimization/external_connect.js \
 	$(DEPLOY_DIR)
 deploy-css:
@@ -40,8 +39,7 @@ deploy-css:
 deploy-local:
 	([ ! -x deploy-local.sh ] || ./deploy-local.sh)
 
-uglify:
-	$(UGLIFYJS) -p relative $(OUTPUT_DIR)/app.bundle.js -o $(OUTPUT_DIR)/app.bundle.min.js --source-map $(OUTPUT_DIR)/app.bundle.min.map --in-source-map $(OUTPUT_DIR)/app.bundle.js.map
+
 
 
 source-package:

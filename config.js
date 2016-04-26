@@ -2,22 +2,22 @@
 var config = {
 //    configLocation: './config.json', // see ./modules/HttpConfigFetch.js
     hosts: {
-        domain: 'jitsi-meet.example.com',
+        domain: 'localhost',
         //anonymousdomain: 'guest.example.com',
-        //authdomain: 'jitsi-meet.example.com',  // defaults to <domain>
-        muc: 'conference.jitsi-meet.example.com', // FIXME: use XEP-0030
-        bridge: 'jitsi-videobridge.jitsi-meet.example.com', // FIXME: use XEP-0030
-        //jirecon: 'jirecon.jitsi-meet.example.com',
-        //call_control: 'callcontrol.jitsi-meet.example.com',
-        //focus: 'focus.jitsi-meet.example.com', // defaults to 'focus.jitsi-meet.example.com'
+        //authdomain: 'localhost',  // defaults to <domain>
+        muc: 'conference.localhost', // FIXME: use XEP-0030
+        bridge: 'jitsi-videobridge.localhost', // FIXME: use XEP-0030
+        //jirecon: 'jirecon.localhost',
+        //call_control: 'callcontrol.localhost',
+        //focus: 'focus.localhost', // defaults to 'focus.localhost'
     },
 //  getroomnode: function (path) { return 'someprefixpossiblybasedonpath'; },
 //  useStunTurn: true, // use XEP-0215 to fetch STUN and TURN server
 //  useIPv6: true, // ipv6 support. use at your own risk
     useNicks: false,
-    bosh: '//jitsi-meet.example.com/http-bind', // FIXME: use xep-0156 for that
+    bosh: '//localhost/http-bind', // FIXME: use xep-0156 for that
     clientNode: 'http://jitsi.org/jitsimeet', // The name of client node advertised in XEP-0115 'c' stanza
-    //focusUserJid: 'focus@auth.jitsi-meet.example.com', // The real JID of focus participant - can be overridden here
+    //focusUserJid: 'focus@auth.localhost', // The real JID of focus participant - can be overridden here
     //defaultSipNumber: '', // Default SIP number
 
     // Desktop sharing method. Can be set to 'ext', 'webrtc' or false to disable.
@@ -70,5 +70,6 @@ var config = {
     'During that time service will not be available. ' +
     'Apologise for inconvenience.',*/
     disableThirdPartyRequests: false,
-    minHDHeight: 540
+    minHDHeight: 540,
+    externalConnectUrl : 'http://localhost:3003/connection'
 };

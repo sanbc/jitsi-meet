@@ -9,7 +9,8 @@ let welcomePageDisabled = false;
 
 function supportsLocalStorage() {
     try {
-        return 'localStorage' in window && window.localStorage !== null;
+       // return 'localStorage' in window && window.localStorage !== null;
+       return false;
     } catch (e) {
         console.log("localstorage is not supported");
         return false;
