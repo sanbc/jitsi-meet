@@ -1,0 +1,365 @@
+var request = require("request");
+var CIMA_URL = "http://96.119.182.147/oauth/token";
+var SESSION_MANAGER = "https://smrtc-ma.codebig2.net/RTCGSessionManager/rest/share";
+//var SESSION_MANAGER = "http://ma-sm-as-a-001.rtc.sys.comcast.net:8080/RTCGSessionManager/rest/share";
+var CODEBIG_SERVICES_URL = "https://sasrtc-ma.codebig2.net/rest/pba/share/v4.0/services?uid=";
+var SAS_USER_ELIBILITY_URL = "https://sasrtc-ma.codebig2.net/rest/pba/share/v4.0/usereligibilitylookup";
+var CAS_USER_ELIBILITY_URL = "https://casrtc-ma.codebig2.net/rest/xcma6/2way/v2.0/usereligibilitylookup";
+var exec = require('child_process').exec;
+var fs = require('fs');
+GATEWAY_USER_ENTITLEMENT_URL = "https://sasrtc-qa01.codebig2.net/rest/pba/share/v4.0/services";
+
+
+//Initialize Call to CIMA
+module.exports = function(app) {
+
+
+};
+
+module.exports.sendUserDetails = function(userName, password, cb) {
+
+    var userName = userName;
+    var password = password;
+    authorizationToken = null;
+    var authorization = "Basic UGVyc29uYWwtQnJvYWRjYXN0LUFwcDphZDJjZWFiNzYyOWRlYjcxMDlmZGMwYTY1YzY1M2M5MWRiYjRjOTcy";
+    var headers = {
+        "Authorization": authorization,
+        "Content-Type": "application/x-www-form-urlencoded"
+    };
+
+    //FORM DATA
+    var form = {
+        grant_type: "password",
+        username: userName,
+        password: password
+    };
+
+    logCIMARequest(CIMA_URL, form, headers);
+
+    //Posting CIMA Request	
+    request.post({
+        url: CIMA_URL,
+        form: form,
+        headers: headers
+    }, function(err, res, body) {
+        if (!err && res.statusCode == 200) {
+            console.log("Response Status Code : " + res.statusCode);
+            console.log("Response Body : " + res.body);
+            console.log("Token Type : " + res.token_type);
+            res.body = JSON.parse(res.body)
+            accessToken = res.body["access_token"];
+            console.log("Access Token : " + accessToken);
+            authorizationToken = "Bearer " + accessToken;
+            var headers = {
+                "uid": userName,
+                "Authorization": authorizationToken,
+                "x-tracking-id": "2971c7e0-e839-11e4",
+                "Content-Type": "application/json",
+                "custguid": "445955150715052014Comcast.USRIMS",
+                "serviceId": "share",
+                "client-info": "Apple/phone/android/ios7.1.2/ShareApp/4.0",
+                "x-server-name": "RTCGSM",
+                "x-client-name": "POCBrowserClient",
+                "x-source-id": "pba",
+                "user-agent": "Android/phone/android/ios7.1.2/ShareApp/1.0",
+                "device-id": "2971c7e0-e839-11e40",
+            };
+            request.get({
+                url: CODEBIG_SERVICES_URL + userName,
+                headers: headers
+            }, function(error, res) {
+                if (!error && res.statusCode == 200) {
+                    console.log("CODEBIG SERVICES AFTER LOGIN:", JSON.parse(res.body));
+                    routingId = JSON.parse(res.body).mappedRid;
+                    if (!error && JSON.parse(res.body).responseHeader.status.statusMessage === "Success") {
+			var userData = {
+				"token": authorizationToken,
+				"routingId": routingId
+			};
+                        //cb(authorizationToken);
+			cb(userData);
+                    } else {
+                        console.log("User not entitled for share");
+                        cb([CODEBIG_SERVICES_URL, 'User not entitled for share']);
+                    }
+                } else {
+                    res = (res && res.body) ? res.body : "No response";
+                    console.log("Response from services: " + res);
+                    cb([CODEBIG_SERVICES_URL, res]);
+                }
+            });
+        } else {
+            if (res && res.body) {
+                res = (res && res.body) ? res.body : "No response";
+                console.log("Response from Cima: " + res);
+                cb([CIMA_URL, res]);
+            }
+        }
+    });
+}
+
+module.exports.sendCreateRoomRequest = function(app_type, from, participants, cb) {
+    console.log("participants:", participants);
+    if (app_type == 'share') {
+        CODEBIG_USER_ELIBILITY_URL = SAS_USER_ELIBILITY_URL;
+        server_name = 'SAS';
+        var eligibility_body = {
+            "userEligibilityLookup": {
+                "uidList": participants,
+                "tnList": []
+            }
+        };
+        var eligibility_headers = {
+            'user-agent': 'Android/phone/android/ios7.1.2/ShareApp/1.0',
+            'Content-Type': 'application/json',
+            'Authorization': authorizationToken,
+            'Device-Id': 'd5365ac965ae19b6',
+            'x-tracking-id': '7aa2eb63-6314-4fef-9e24-cfd9b20fbcc',
+            'x-source-id': 'mobile',
+            'x-client-name': 'Android',
+            'x-server-name': server_name
+        };
+        console.log("USER HEADERS and DATA:", eligibility_headers, eligibility_body);
+        request.put({
+            url: CODEBIG_USER_ELIBILITY_URL,
+            json: eligibility_body,
+            headers: eligibility_headers
+        }, function(error, result) {
+            
+            if (!error && result.statusCode == 200) {
+                console.log("ELIGIBILITY RESPONSE:", JSON.stringify(result.body));
+                
+                /*============TEMP===============*/
+                /*
+                if ((JSON.parse(JSON.stringify((result.body['userEligibilityLookup'])['uidList']))[0].servicesEligibility)['share']['status']) {
+                	
+                	cb(result.body);
+                }
+             }
+         });  */
+                
+            
+             
+             
+               if ((JSON.parse(JSON.stringify((result.body['userEligibilityLookup'])['uidList']))[0].servicesEligibility)['share']['status']) {
+                    var form = {
+                        "participantsInfo": participants,
+                        "callType": "video",
+                        "sType": "sharecast",
+                        "STBID": "edavxf",
+                        "instanceId": "8VShBI3o",
+                        "fromUID": from,
+                        "fromTN": "2153454565",
+                        "toTN": "2153454565",
+                        "isOpenSipRequest": false,
+                        "displayName": "rtcgsmdev",
+                        "deviceType": "Android/iOS/STB"
+                    };
+                    var headers = {
+                        "uid": from,
+                        "Authorization": authorizationToken,
+                        "x-tracking-id": "2971c7e0-e839-11e4",
+                        "custguid": "445955150715052014Comcast.USRIMS",
+                        "serviceId": "share",
+                        "x-server-name": "RTCGSM",
+                        "x-client-name": "POCBrowserClient",
+                        "x-source-id": "PBA/Connect",
+                        "user-agent": "Android/phone/android/ios7.1.2/ShareApp/1.0",
+                        "device-id": "2971c7e0-e839-11e40",
+                    };
+		    var createRoomUrl = SESSION_MANAGER + '/session/createroom?uid=' + from;
+		    console.log("create",createRoomUrl,form,headers)
+                    request.put({
+                        url: createRoomUrl,
+                        json: form,
+                        headers: headers
+                    }, function(error, res) {
+                        if (!error && res.statusCode == 200) {
+                            console.log("CreateRoom Response", res.body);
+                            if (cb) {
+                                cb(res.body);
+                            }
+                        } else {
+                            console.log("Share create room failure");
+							var response = (res && res.body)?res.body:"No response";
+                            cb([createRoomUrl, response]);
+                        }
+                    });
+                } else {
+                    console.log("User not eligible for share");
+                    cb([CODEBIG_USER_ELIBILITY_URL, 'User not eligible for share']);
+                }
+            } else {
+                res = (result && result.body) ? result.body : "No response";
+                console.log("To user eligibility: " + res);
+                cb([CODEBIG_USER_ELIBILITY_URL, res]);
+            }
+        });
+    } else {
+        var form = {
+            "participantsInfo": participants,
+            "callType": "video",
+            "sType": "sharecast",
+            "STBID": "edavxf",
+            "instanceId": "8VShBI3o",
+            "fromUID": from,
+            "fromTN": "2153454565",
+            "toTN": "2153454565",
+            "isOpenSipRequest": false,
+            "displayName": "rtcgsmdev",
+            "deviceType": "Android/iOS/STB"
+        };
+        var headers = {
+            "uid": from,
+            "Authorization": authorizationToken,
+            "x-tracking-id": "2971c7e0-e839-11e4",
+            "custguid": "445955150715052014Comcast.USRIMS",
+            "serviceId": "connect",
+            "x-server-name": "RTCGSM",
+            "x-client-name": "POCBrowserClient",
+            "x-source-id": "PBA/Connect",
+            "user-agent": "Android/phone/android/ios7.1.2/ShareApp/1.0",
+            "device-id": "2971c7e0-e839-11e40",
+        };
+	var createRoomUrl = SESSION_MANAGER + '/session/createroom?uid=' + from;
+        request.put({
+            url: createRoomUrl,
+            json: form,
+            headers: headers
+        }, function(error, res) {
+            if (!error && res.statusCode == 200) {
+                console.log("CreateRoom Response", res.body);
+                if (cb) {
+                    cb(res.body);
+                }
+            } else {
+                console.log("SM: " + SESSION_MANAGER + "  " + res.statusCode);
+                var response = (res && res.body)?res.body:"No response";
+                cb([createRoomUrl, response]);
+            }
+        });
+    }
+    /*else if (app_type == 'connect') {
+		CODEBIG_USER_ELIBILITY_URL = CAS_USER_ELIBILITY_URL;
+		server_name = 'CAS';
+	}*/
+   //}
+}
+
+module.exports.sendJoinRoomRequest = function(uid, mucid, instanceId, to, cb) {
+
+    var form = {
+        "callType": "video",
+        "sType": "sharecast",
+        "instanceId": "2bavpI3o",
+        "fromUID": uid,
+        "toID": to,
+        "fromTN": "2153454565",
+        "topic": "xc-2way",
+        "isPSTNTerminating": false,
+        "displayName": "rtcgsmdev",
+        "originInstanceID": instanceId,
+        "deviceType": "Android/iOS/STB"
+    };
+    var headers = {
+        "uid": uid,
+        "Authorization": authorizationToken,
+        "x-tracking-id": "2971c7e0-e839-11e4",
+        "Content-Type": "application/json",
+        "custguid": "445955150715052014Comcast.USRIMS",
+        "serviceId": "connect",
+        "x-server-name": "RTCGSM",
+        "x-client-name": "POCBrowserClient",
+        "x-source-id": "PBA/Connect",
+        "user-agent": "Android/phone/android/ios7.1.2/ShareApp/1.0",
+        "device-id": "2971c7e0-e839-11e40",
+    };
+    console.log("JoinRoom headers and payload:", headers, form);
+    var joinRoomUrl = SESSION_MANAGER + '/session/joinroom/roomids/' + mucid + '?uid=' + uid;
+    request.put({
+        url: joinRoomUrl,
+        json: form,
+        headers: headers
+    }, function(error, res) {
+        if (!error && res.statusCode == 200) {
+            console.log("JoinRoom Response", res.body);
+            if (cb) {
+                cb(res.body);
+            }
+        } else {
+            console.log("SM: " + SESSION_MANAGER + "  " + res.statusCode);
+            var response = (res && res.body)?res.body:"No response";
+            cb([joinRoomUrl, response]);
+        }
+    });
+}
+
+module.exports.sendRegisterRequest = function(uid, cb) {
+
+    var headers = {
+        "uid": uid,
+        "participantId": uid,
+        "Authorization": authorizationToken,
+        "x-tracking-id": "2971c7e0-e839-11e4",
+        "custguid": "445955150715052014Comcast.USRIMS",
+        "serviceId": "share",
+        "x-server-name": "RTCGSM",
+        "x-client-name": "POCBrowserClient",
+        "x-source-id": "PBA/Connect",
+        "user-agent": "Android/phone/android/ios7.1.2/ShareApp/1.0",
+        "device-id": "2971c7e0-e839-11e40",
+    };
+    var registerUrl = SESSION_MANAGER + '/register/participants/' + uid + '?uid=' + uid;
+    console.log("Register url and headers: ", registerUrl, headers);
+    request.get({
+        url: registerUrl,
+        headers: headers
+    }, function(error, res) {
+        if (!error && res.statusCode == 200) {
+            console.log("Register Response", res.body);
+	    //var regData = JSON.parse(res.body);
+	    //regData.routingId = routingId;
+	    //cb(JSON.stringify(regData));
+	    cb(res.body);
+        } else {
+            console.log("SM: " + SESSION_MANAGER + "  " + res);
+            var response = (res && res.body)?res.body:"No response";
+            cb([registerUrl, response]);
+        }
+    });
+}
+
+module.exports.sendDownloadData = function(logData, fileName, cb) {
+    exec("if [ ! -d /home/ubuntu/<directory> ]; then mkdir /home/ubuntu/<directory>; chmod 755 -R /home/ubuntu/<directory>; fi", function(error, stdout, stderr) {
+        if (error) {
+			cb([fileName, error]);
+            return console.log("Folder creation error:", error);
+        }
+        console.log("Folder created");
+        fs.writeFile("/home/ubuntu/<directory>/" + fileName, logData, function(err) {
+            if (err) {
+                console.log("File saving error");
+                cb([fileName, err]);
+                return console.log(err);
+            }
+            console.log("The file was saved!");
+            cb();
+        });
+    });
+}
+
+var logCIMARequest = function(url, form, headers) {
+
+    console.log("CIMA URL : " + url);
+
+    console.log("Form Data....");
+    for (var param in form) {
+        console.log(param + " : " + form[param]);
+    }
+
+    console.log("Headers....");
+    for (var param in headers) {
+        console.log(param + " : " + headers[param]);
+    }
+
+};
